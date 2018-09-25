@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<title>Document</title>
+	<style>
+		.fz-12 {
+			font-size: 12px;
+		}
+		.title-color {
+			color: #ff5d5d;
+		}
+	</style>
+</head>
+<body>
+	<script src="../buildDom.js"></script>
+	<script>
+		let data = [
+			{tag: 'h1', children: '这是H1标题', class: 'fz-12 title-color'},
+			{
+				style: {
+					border: '1px dashed #585858',
+					padding: '15px'
+				},
+				children: [
+					'正文开始',
+					{
+						tag: 'p',
+						children: '啦啦啦德玛西亚',
+						style: 'color: #abcdef;'
+					}
+				]
+			}
+		]
+		data.forEach(item => {
+			buildDom(item)
+		})
+	</script>
+</body>
+</html>
