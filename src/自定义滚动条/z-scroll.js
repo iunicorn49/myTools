@@ -15,7 +15,9 @@ class ZScroll {
 		this.data = { // 内部操作变量
 			mousedown: false, // 鼠标是否按下
 			leave: true, // 鼠标是否离开
-			wheelOffsetY: 30 // 顺便滚轮偏移量
+			wheelOffsetY: 30, // 鼠标滚轮偏移量
+			isScroll: false, // 处理滚动缓动
+			timer: null // 缓动计时器
 		}
 		Object.assign(this.ops, options, this.data) // 合并配置项
 		this._initSelector(this.ops) // 用 this.$ 获取配置项
@@ -44,7 +46,7 @@ class ZScroll {
 			right: 0,
 			width: '10px',
 			height: wrapper.offsetHeight + 'px',
-			opacity: 1
+			opacity: 0
 		}
 		let style = this.$scrollBarStyle ? Object.assign(styleMap, this.$scrollBarStyle) : styleMap
 		let scrollBar = this.buildDom({ class: classList, style }, wrapper)
@@ -91,6 +93,7 @@ class ZScroll {
 		let dragStart = null // 初始坐标
 		let sliderStart = null // 滑块已经移动的距离
 		let down = e => { // 鼠标按下事件
+			this.stopScroll()
 			dragStart = slider.getBoundingClientRect().top + e.offsetY,
 			sliderStart = slider.offsetTop
 			this.$mousedown = true
@@ -103,7 +106,7 @@ class ZScroll {
 				return
 			}
 			let positionVal = -(sliderStart + e.pageY - dragStart) * this.$scrollRate // 位置
-			this.scrollTo(positionVal)
+			this._privacyScrollTo(positionVal)
 		} // move end
 
 		let up = e => { // 鼠标松开事件
@@ -115,16 +118,52 @@ class ZScroll {
 		} // up end
 		this.bind(slider, 'mousedown', down)
 	}
-	scrollTo(positionVal) { // 设置滚动, 通过设置 content 主体来带动 slider
+	_privacyScrollTo(positionVal) { // 设置滚动, 通过设置 content 主体来带动 slider
 		let limit = -(this.$content.offsetHeight - this.$wrapper.offsetHeight) // 下限
 		if (positionVal > 0) { // 上限
 			positionVal = 0
+			this.stopScroll()
 		} else if (positionVal < limit) {
 			positionVal = limit
+			this.stopScroll()
 		}
 		this.$content.style.top = positionVal + 'px'
 		let sliderPos = -(positionVal / this.$scrollRate)
 		this.$slider.style.top = sliderPos + 'px'
+	}
+	scrollTo(target) { // 对外暴露, 直接滚动到目标坐标
+		this.$timer = setInterval(() => {
+			// target 最终的终点(一般来说是负数或0)
+			let start = this.$content.offsetTop // 每一帧动画的起点(一般来说是负数或0)
+			let direction = start > target ? 'up'
+										: start < target ? 'down'
+										: false
+			let go = null // 这一帧动画的终点
+			let speed = Math.floor((target - start) / 20)
+			if (!direction) {
+				this.stopScroll()
+				return
+			} else {
+				if (direction === 'up') {
+					speed = speed < 0 ? speed : -1
+					go = start + speed
+					if (go < target) go = target
+				} else if (direction === 'down') {
+					speed = speed > 0 ? speed : 1
+					go = start + speed
+					if (go > target || speed === 0) go = target
+				}
+			}
+			let a = {start: -991, go: -991, target: -1000, speed: 0}
+			this._privacyScrollTo(go)
+		}, 25)
+	}
+	stopScroll(where) {
+		if (!this.$timer) return
+		where = where && typeof where === 'string' ? where + '-' : ''
+		console.error(where + '缓动滚动结束:', this.$content.offsetTop)
+		clearInterval(this.$timer)
+		this.$timer = null
 	}
 	resize(ops = {}) {
 		let { wrapper = this.$wrapper, content = this.$content } = ops // 若更新了content, 请务必重新传入 content
@@ -144,9 +183,10 @@ class ZScroll {
 	}
 	_initMousewheelEvent(wrapper) { // 初始化鼠标滚轮事件
 		let wheel = e => {
+			this.stopScroll()
 			let d = e.deltaY > 0 ? -this.$wheelOffsetY : this.$wheelOffsetY
 			let top = this.$content.offsetTop + d
-			this.scrollTo(top)
+			this._privacyScrollTo(top)
 		}
 		this.bind(wrapper, 'mousewheel', wheel)
 	}
